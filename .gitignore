@@ -1,7 +1,3 @@
 # Ignore these files
 secret
 default.vcl
-custom.acl.vcl
-custom.backend.vcl
-custom.fetch.vcl
-custom.recv.vcl
