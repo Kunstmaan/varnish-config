@@ -238,10 +238,10 @@ sub vcl_fetch {
     if (beresp.ttl <= 0s || beresp.http.Set-Cookie || beresp.http.Vary == "*") {
         set beresp.http.X-Cacheable = "NO: Not Cacheable";
         set beresp.http.X-TTL = beresp.ttl;
+        return (hit_for_pass);
     } else {
         set beresp.http.X-Cacheable = "YES";
         set beresp.http.X-TTL = beresp.ttl;
-        return (hit_for_pass);
     }
 
     return (deliver);
