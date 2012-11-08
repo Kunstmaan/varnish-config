@@ -6,3 +6,7 @@
 #    # The Drupal 7 specific receive
 #    include "conf.d/receive/drupal7.vcl";
 #}
+
+if (req.http.Host == "challenge.flandersdc.be"){
+    return (pass);
+}
