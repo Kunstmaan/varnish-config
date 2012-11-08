@@ -13,7 +13,7 @@ sub vcl_recv {
 
     # Add X-Request-Start header so we can track queue times in New Relic RPM beginning at Varnish.
     C{
-        #include <sys time.h="">
+        #include <sys/time.h>
         struct timeval detail_time;
         gettimeofday(&detail_time,NULL);
         char start[20];
