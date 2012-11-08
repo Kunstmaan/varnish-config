@@ -204,6 +204,9 @@ sub vcl_fetch {
     # Include custom vcl_fetch logic
     include "custom.fetch.vcl";
 
+    # Default cache time, 10 minutes
+    set beresp.ttl = 600s;
+
     # Parse ESI request and remove Surrogate-Control header
     if (beresp.http.Surrogate-Control ~ "ESI/1.0") {
         unset beresp.http.Surrogate-Control;
@@ -232,14 +235,13 @@ sub vcl_fetch {
         unset beresp.http.set-cookie;
     }
 
-    # Set 10min cache if unset for static files
     if (beresp.ttl <= 0s || beresp.http.Set-Cookie || beresp.http.Vary == "*") {
-        set beresp.ttl = 600s;
+        set beresp.http.X-Cacheable = "NO: Not Cacheable";
+        set beresp.http.X-TTL = beresp.ttl;
+    } else {
         set beresp.http.X-Cacheable = "YES";
         set beresp.http.X-TTL = beresp.ttl;
         return (hit_for_pass);
-    } else {
-        set beresp.http.X-Cacheable = "NO:Not Cacheable";
     }
 
     return (deliver);
