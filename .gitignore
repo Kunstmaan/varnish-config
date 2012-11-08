@@ -1,3 +1,5 @@
 # Ignore these files
 secret
 default.vcl
+
+old.conf

@@ -204,8 +204,11 @@ sub vcl_fetch {
     # Include custom vcl_fetch logic
     include "custom.fetch.vcl";
 
-    # Default cache time, 10 minutes
-    set beresp.ttl = 600s;
+    # Serve objects up to 2 minutes past their expiry if the backend is slow to respond.
+    set beresp.grace = 2m;
+
+    # Default cache time, 2 minutes
+    set beresp.ttl = 5m;
 
     # Parse ESI request and remove Surrogate-Control header
     if (beresp.http.Surrogate-Control ~ "ESI/1.0") {
