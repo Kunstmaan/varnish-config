@@ -232,23 +232,14 @@ sub vcl_fetch {
         unset beresp.http.set-cookie;
     }
 
-    # Varnish determined the object was not cacheable
-    if (beresp.ttl <= 0s) {
-        set beresp.http.X-Cacheable = "NO:Not Cacheable";
-    } elsif (req.http.Cookie ~ "(UserID|_session)") {
-        # You don't wish to cache content for logged in users
-        set beresp.http.X-Cacheable = "NO:Got Session";
-        return(hit_for_pass);
-    } elsif (beresp.http.Cache-Control ~ "private") {
-        # You are respecting the Cache-Control=private header from the backend
-        set beresp.http.X-Cacheable = "NO:Cache-Control=private";
-        return(hit_for_pass);
-    } else {
-        # Varnish determined the object was cacheable
+    # Set 10min cache if unset for static files
+    if (beresp.ttl <= 0s || beresp.http.Set-Cookie || beresp.http.Vary == "*") {
         set beresp.ttl = 600s;
         set beresp.http.X-Cacheable = "YES";
         set beresp.http.X-TTL = beresp.ttl;
         return (hit_for_pass);
+    } else {
+        set beresp.http.X-Cacheable = "NO:Not Cacheable";
     }
 
     return (deliver);
