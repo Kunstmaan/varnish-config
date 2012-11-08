@@ -11,16 +11,6 @@ sub vcl_recv {
         error 404 "Not Found";
     }
 
-    # Add X-Request-Start header so we can track queue times in New Relic RPM beginning at Varnish.
-    C{
-        #include <sys/time.h>
-        struct timeval detail_time;
-        gettimeofday(&detail_time,NULL);
-        char start[20];
-        sprintf(start, "t=%lu%06lu", detail_time.tv_sec, detail_time.tv_usec);
-        VRT_SetHdr(sp, HDR_REQ, "\020X-Request-Start:", start, vrt_magic_string_end);
-    }C
-
     # Serve objects up to 2 minutes past their expiry if the backend is slow to respond.
     set req.grace = 120s;
 
