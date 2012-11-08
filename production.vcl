@@ -4,12 +4,16 @@
 include "custom.backend.vcl";
 include "custom.acl.vcl";
 
-# Handle the HTTP request received by the client 
+# Handle the HTTP request received by the client
 sub vcl_recv {
     # shortcut for DFind requests
     if (req.url ~ "^/w00tw00t") {
         error 404 "Not Found";
     }
+
+    # Serve objects up to 2 minutes past their expiry if the backend is slow to respond.
+    set req.grace = 120s;
+
     if (req.restarts == 0) {
         if (req.http.X-Forwarded-For) {
             set req.http.X-Forwarded-For = req.http.X-Forwarded-For + ", " + client.ip;
@@ -79,6 +83,12 @@ sub vcl_recv {
     set req.http.Cookie = regsuball(req.http.Cookie, "utmccn.=[^;]+(; )?", "");
     # Remove the Quant Capital cookies (added by some plugin, all __qca)
     set req.http.Cookie = regsuball(req.http.Cookie, "__qc.=[^;]+(; )?", "");
+    # Remove a ";" prefix, if present.
+    set req.http.Cookie = regsub(req.http.Cookie, "^;\s*", "");
+    # remove newrelic
+    set req.http.Cookie = regsuball(req.http.Cookie, "NREUM=[^;]*", "");
+    # remove ASP
+    set req.http.Cookie = regsuball(req.http.Cookie, "ASP.NET_SessionId=[^;]*", "");
 
     # Are there cookies left with only spaces or that are empty?
     if (req.http.cookie ~ "^ *$") {
@@ -108,12 +118,17 @@ sub vcl_recv {
     }
 
     # Send Surrogate-Capability headers to announce ESI support to backend
-    set req.http.Surrogate-Capability = "key=ESI/1.0";
+    set req.http.Surrogate-Capability = "abc=ESI/1.0";
 
     # Include custom vcl_recv logic
     include "custom.recv.vcl";
 
-    if (req.http.Authorization || req.http.Cookie) {
+    if(req.url ~ "/(ajaxcontroller|edit|selftest)" || req.url ~ "/(admin|login|monitor)" || req.url ~ "/wp-(login|admin)"){
+        # Not cacheable by default
+        return (pass);
+    }
+
+    if (req.http.Authorization) {
         # Not cacheable by default
         return (pass);
     }
@@ -129,7 +144,7 @@ sub vcl_pipe {
     # here.  It is not set by default as it might break some broken web
     # applications, like IIS with NTLM authentication.
 
-    #set bereq.http.Connection = "Close";
+    set bereq.http.Connection = "Close";
     return (pipe);
 }
 
@@ -151,6 +166,7 @@ sub vcl_hash {
     if (req.http.Cookie) {
         hash_data(req.http.Cookie);
     }
+
     if (req.http.Authorization) {
         hash_data(req.http.Authorization);
     }
@@ -183,7 +199,7 @@ sub vcl_miss {
     return (fetch);
 }
 
-# Handle the HTTP request coming from our backend 
+# Handle the HTTP request coming from our backend
 sub vcl_fetch {
     # Include custom vcl_fetch logic
     include "custom.fetch.vcl";
@@ -192,6 +208,15 @@ sub vcl_fetch {
     if (beresp.http.Surrogate-Control ~ "ESI/1.0") {
         unset beresp.http.Surrogate-Control;
         set beresp.do_esi = true;
+    }
+
+    if (beresp.http.X-Reverse-Proxy-TTL) {
+        C{
+            char *ttl;
+            ttl = VRT_GetHdr(sp, HDR_BERESP, "\024X-Reverse-Proxy-TTL:");
+            VRT_l_beresp_ttl(sp, atoi(ttl));
+        }C
+        unset beresp.http.X-Reverse-Proxy-TTL;
     }
 
     # If the request to the backend returns a code is 5xx, restart the loop
@@ -207,9 +232,22 @@ sub vcl_fetch {
         unset beresp.http.set-cookie;
     }
 
-    # Set 2min cache if unset for static files
-    if (beresp.ttl <= 0s || beresp.http.Set-Cookie || beresp.http.Vary == "*") {
-        set beresp.ttl = 120s;
+    # Varnish determined the object was not cacheable
+    if (beresp.ttl <= 0s) {
+        set beresp.http.X-Cacheable = "NO:Not Cacheable";
+    } elsif (req.http.Cookie ~ "(UserID|_session)") {
+        # You don't wish to cache content for logged in users
+        set beresp.http.X-Cacheable = "NO:Got Session";
+        return(hit_for_pass);
+    } elsif (beresp.http.Cache-Control ~ "private") {
+        # You are respecting the Cache-Control=private header from the backend
+        set beresp.http.X-Cacheable = "NO:Cache-Control=private";
+        return(hit_for_pass);
+    } else {
+        # Varnish determined the object was cacheable
+        set beresp.ttl = 600s;
+        set beresp.http.X-Cacheable = "YES";
+        set beresp.http.X-TTL = beresp.ttl;
         return (hit_for_pass);
     }
 
@@ -220,9 +258,10 @@ sub vcl_fetch {
 # Last chance to modify headers that are sent to the client
 sub vcl_deliver {
     if (obj.hits > 0) {
+        set resp.http.X-Cache-Hits = obj.hits;
         set resp.http.X-Cache = "cached";
     } else {
-        set resp.http.x-Cache = "uncached";
+        set resp.http.X-Cache = "uncached";
     }
 
     # Remove some headers: PHP version
