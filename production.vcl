@@ -208,7 +208,7 @@ sub vcl_fetch {
     set beresp.grace = 2m;
 
     # Default cache time, 2 minutes
-    set beresp.ttl = 5m;
+    #set beresp.ttl = 5m;
 
     # Parse ESI request and remove Surrogate-Control header
     if (beresp.http.Surrogate-Control ~ "ESI/1.0") {
