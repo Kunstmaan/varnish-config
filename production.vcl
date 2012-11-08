@@ -244,7 +244,7 @@ sub vcl_fetch {
         set beresp.http.X-Cacheable = "NO:Not Cacheable";
 
     # You don't wish to cache content for logged in users
-    } elsif (req.http.Cookie ~ "(UserID|_session)") {
+    } elsif (req.http.Cookie ~ "(UserID|_session|JSESSIONID)") {
         set beresp.http.X-Cacheable = "NO:Got Session";
         return(hit_for_pass);
 
