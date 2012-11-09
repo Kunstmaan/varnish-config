@@ -284,21 +284,6 @@ sub vcl_deliver {
     return (deliver);
 }
 
-sub vcl_error {
-    if (obj.status >= 500 && obj.status <= 599 && req.restarts < 4) {
-        # 4 retry for 5xx error
-        #return(restart);
-        include "conf.d/error.vcl";
-    } elsif (obj.status >= 400 && obj.status <= 499 ) {
-        # use 404 error page for 4xx error
-        include "conf.d/error-404.vcl";
-    } elsif (obj.status <= 200 && obj.status >= 299 ) {
-        # for other errors (not 5xx, not 4xx and not 2xx)
-        include "conf.d/error.vcl";
-    }
-    return (deliver);
-}
-
 sub vcl_init {
     return (ok);
 }
