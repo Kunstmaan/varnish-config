@@ -8,5 +8,7 @@ backend default {
 #        .window    = 5;
 #        .threshold = 2;
 #    }
-    .first_byte_timeout = 300s;
+    .connect_timeout = 600s;
+    .first_byte_timeout = 600s;
+    .between_bytes_timeout = 600s;
 }
