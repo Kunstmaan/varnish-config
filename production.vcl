@@ -292,7 +292,7 @@ sub vcl_error {
     } elsif (obj.status >= 400 && obj.status <= 499 ) {
         # use 404 error page for 4xx error
         include "conf.d/error-404.vcl";
-    } elsif (obj.status <= 200 && obj.status >= 299 ) {
+    } elsif (obj.status <= 200 || obj.status >= 299 ) {
         # for other errors (not 5xx, not 4xx and not 2xx)
         include "conf.d/error.vcl";
     }
